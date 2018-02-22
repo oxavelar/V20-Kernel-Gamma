@@ -38,6 +38,15 @@
 	.store = power_supply_store_property,				\
 }
 
+#ifdef CONFIG_LGE_PM_LLK_MODE
+#define STORE_DEMO_ENABLED_ATTR(_name)				\
+{													\
+	.attr = { .name = #_name, .mode = 0644},		\
+	.show =  power_supply_show_property,			\
+	.store =  power_supply_store_property,			\
+}
+#endif
+
 static struct device_attribute power_supply_attrs[];
 
 static ssize_t power_supply_show_property(struct device *dev,
@@ -48,6 +57,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"USB_CDP", "USB_ACA", "USB_HVDCP", "USB_HVDCP_3", "USB_PD",
 		"Wireless", "USB_FLOAT", "BMS", "Parallel", "Main", "Wipower",
 		"TYPEC", "TYPEC_UFP", "TYPEC_DFP"
+#ifdef CONFIG_LGE_USB_TYPE_C
+		"USB_C", "USB_PD",
+#endif
+#ifdef CONFIG_BATTERY_MAX17050
+		"EXT_FG"
+#endif
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
@@ -87,8 +102,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 	struct power_supply *psy = dev_get_drvdata(dev);
 	const ptrdiff_t off = attr - power_supply_attrs;
 	union power_supply_propval value;
-
+#ifdef CONFIG_LGE_PM
+	if (off == POWER_SUPPLY_PROP_TYPE && !!strcmp(psy->name, "usb")) {
+#else
 	if (off == POWER_SUPPLY_PROP_TYPE) {
+#endif
 		value.intval = psy->type;
 	} else {
 		ret = psy->get_property(psy, off, &value);
@@ -255,8 +273,28 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(resistance),
 	POWER_SUPPLY_ATTR(resistance_capacitive),
 	POWER_SUPPLY_ATTR(resistance_id),
+#ifdef CONFIG_LGE_PM_USB_CURRENT_MAX_MODE
+	POWER_SUPPLY_ATTR(usb_current_max_mode),
+#endif
+#ifdef CONFIG_LGE_PM_CHARGING_CONTROLLER
+	POWER_SUPPLY_ATTR(tdmb_mode_on),
+#endif
+#ifdef CONFIG_LGE_PM_VZW_REQ
+	POWER_SUPPLY_ATTR(vzw_chg),
+#endif
+#ifdef CONFIG_LGE_PM_LLK_MODE
+	STORE_DEMO_ENABLED_ATTR(store_demo_enabled),
+#endif
 	POWER_SUPPLY_ATTR(resistance_now),
 	POWER_SUPPLY_ATTR(flash_current_max),
+#ifdef CONFIG_LGE_PM_MAXIM_EVP_CONTROL
+	POWER_SUPPLY_ATTR(is_evp_ta),
+#endif
+#ifdef CONFIG_LGE_USB_MAXIM_EVP
+	POWER_SUPPLY_ATTR(evp_vol),
+	POWER_SUPPLY_ATTR(hvdcp_type),
+	POWER_SUPPLY_ATTR(evp_detect_start),
+#endif
 	POWER_SUPPLY_ATTR(update_now),
 	POWER_SUPPLY_ATTR(esr_count),
 	POWER_SUPPLY_ATTR(buck_freq),
@@ -276,16 +314,74 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(cycle_count_id),
 	POWER_SUPPLY_ATTR(safety_timer_expired),
 	POWER_SUPPLY_ATTR(restricted_charging),
+#if (defined (CONFIG_LGE_PM_BATTERY_ID_CHECKER) || \
+	defined (CONFIG_LGE_PM_LGE_POWER_CLASS_BATTERY_ID_CHECKER))
+	POWER_SUPPLY_ATTR(batt_id),
+	POWER_SUPPLY_ATTR(valid_batt_id),
+#endif
+#ifdef CONFIG_LGE_PM_CHARGERLOGO_WAIT_FOR_FG_INIT
+	POWER_SUPPLY_ATTR(first_soc_est_done),
+#endif
+#ifdef CONFIG_LGE_PM_BATTERY_SWAP
+	POWER_SUPPLY_ATTR(manual_swap),
+	POWER_SUPPLY_ATTR(swap_enable),
+	POWER_SUPPLY_ATTR(swap_status),
+#endif
+#ifdef CONFIG_LGE_USB_TYPE_C
+	POWER_SUPPLY_ATTR(dp_alr_mode),
+#endif
+#ifdef CONFIG_LGE_USB_FLOATED_CHARGER_DETECT
+	POWER_SUPPLY_ATTR(apsd_return_need),
+	POWER_SUPPLY_ATTR(incompatible_chg),
+#endif
+#ifdef CONFIG_LGE_PM_CHARGING_CONTROLLER
+	POWER_SUPPLY_ATTR(usb_non_drive),
+#endif
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_ATTR(fastchg),
+#endif
+#if defined(CONFIG_BATTERY_MAX17050) || defined(CONFIG_LGE_PM_FG_AGE)
+	POWER_SUPPLY_ATTR(battery_condition),
+	POWER_SUPPLY_ATTR(battery_age),
+	POWER_SUPPLY_ATTR(battery_age_level),
+#endif
+#if defined(CONFIG_IDTP9223_CHARGER) || defined(CONFIG_MACH_MSM8996_LUCYE)
+	POWER_SUPPLY_ATTR(connection_type),
+#endif
 	POWER_SUPPLY_ATTR(current_capability),
 	POWER_SUPPLY_ATTR(typec_mode),
+#ifdef CONFIG_LGE_APPS_PORT_FRIENDS
+	POWER_SUPPLY_ATTR(friends_detect),
+	POWER_SUPPLY_ATTR(friends_vpwr_sw),
+	POWER_SUPPLY_ATTR(friends_type),
+#ifdef CONFIG_LGE_APPS_PORT_FRIENDS_ONE_WIRE
+	POWER_SUPPLY_ATTR(friends_command),
+#endif
+	POWER_SUPPLY_ATTR(friends_usb_enable),
+#endif
+#if defined(CONFIG_LGE_USB_FLOATED_CHARGER_DETECT) && defined(CONFIG_LGE_USB_TYPE_C)
+	POWER_SUPPLY_ATTR(ctype_charger),
+#endif
+#if defined(CONFIG_LGE_USB_ANX7688_OVP) || defined(CONFIG_LGE_USB_TUSB422)
+	POWER_SUPPLY_ATTR(ctype_rp),
+#endif
 	POWER_SUPPLY_ATTR(allow_hvdcp3),
 	POWER_SUPPLY_ATTR(max_pulse_allowed),
 	POWER_SUPPLY_ATTR(enable_aicl),
 	POWER_SUPPLY_ATTR(soc_reporting_ready),
 	POWER_SUPPLY_ATTR(ignore_false_negative_isense),
 	POWER_SUPPLY_ATTR(enable_jeita_detection),
+#ifdef CONFIG_LGE_PM_CHARGING_SCENARIO
+	POWER_SUPPLY_ATTR(jeita_charging_enabled),
+#endif
+#ifdef CONFIG_LGE_PM_RESTORE_BATT_INFO
 	POWER_SUPPLY_ATTR(battery_info),
 	POWER_SUPPLY_ATTR(battery_info_id),
+#endif
+#ifdef CONFIG_LGE_PM_CYCLE_BASED_CHG_VOLTAGE
+	POWER_SUPPLY_ATTR(battery_cycle),
+#endif
+	POWER_SUPPLY_ATTR(capacity_qct),
 	POWER_SUPPLY_ATTR(typec_cc_orientation),
 	POWER_SUPPLY_ATTR(typec_power_role),
 	POWER_SUPPLY_ATTR(pd_allowed),
