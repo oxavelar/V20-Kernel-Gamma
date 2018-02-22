@@ -67,10 +67,17 @@ obj-$(CONFIG_SMB1360_CHARGER_FG) += smb1360-charger-fg.o
 obj-$(CONFIG_SMB138X_CHARGER)	+= smb138x-charger.o pmic-voter.o
 obj-$(CONFIG_SMB358_CHARGER)	+= smb358-charger.o
 obj-$(CONFIG_SMB23X_CHARGER)	+= smb23x-charger.o
+obj-$(CONFIG_IDTP9223_CHARGER)	+= idtp9223-charger.o
 obj-$(CONFIG_BATTERY_BQ28400)	+= bq28400_battery.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o batterydata-lib.o
 obj-$(CONFIG_QPNP_VM_BMS)	+= qpnp-vm-bms.o batterydata-lib.o batterydata-interface.o
+obj-$(CONFIG_LGE_PM_BATTERY_ID_CHECKER) += lge_battery_id.o
+obj-$(CONFIG_BATTERY_MAX17050)  += max17050_battery.o
+ifndef CONFIG_MACH_MSM8996_H1
 obj-$(CONFIG_QPNP_FG)		+= qpnp-fg.o
+else
+obj-$(CONFIG_QPNP_FG)           += qpnp-fg_alice.o
+endif
 obj-$(CONFIG_QPNP_FG_GEN3)	+= qpnp-fg-gen3.o fg-memif.o fg-util.o pmic-voter.o
 obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger.o
 obj-$(CONFIG_QPNP_LINEAR_CHARGER)	+= qpnp-linear-charger.o
@@ -83,3 +90,8 @@ obj-$(CONFIG_MSM_BCL_CTL)	+= msm_bcl.o
 obj-$(CONFIG_MSM_BCL_PERIPHERAL_CTL) += bcl_peripheral.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_ARCH_MSM)		+= qcom/
+ifndef CONFIG_MACH_MSM8996_H1
+obj-$(CONFIG_LGE_PM_BATT_MANAGER) += lge_battery_manager.o
+else
+obj-$(CONFIG_LGE_PM_BATT_MANAGER) += lge_battery_manager_alice.o
+endif

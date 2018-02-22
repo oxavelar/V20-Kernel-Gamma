@@ -534,7 +534,11 @@
 		clock-names = "mdp_core_clk", "iface_clk",
 				"core_clk", "alt_iface_clk", "extp_clk";
 
+#ifndef CONFIG_MACH_LGE
 		qcom,hdmi-tx-hpd = <&pm8994_mpps 4 0>;
+#else
+		/delete-property/ qcom,hdmi-tx-hpd;
+#endif
 		qcom,mdss-fb-map = <&mdss_fb2>;
 		qcom,pluggable;
 

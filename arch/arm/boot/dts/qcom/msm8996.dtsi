@@ -205,7 +205,11 @@
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
+#ifndef CONFIG_MACH_LGE
 			alignment = <0 0x100000>;
+#else
+			alignment = <0 0x400000>;
+#endif
 			size = <0 0x400000>;
 		};
 
@@ -228,7 +232,11 @@
 		modem_mem: modem_region@88800000 {
 			compatible = "removed-dma-pool";
 			no-map;
+#ifndef CONFIG_MACH_LGE
 			reg = <0 0x88800000 0 0x6200000>;
+#else
+			reg = <0 0x88800000 0 0x6100000>;
+#endif
 		};
 
 		dfps_data_mem: dfps_data_mem@83400000 {
@@ -879,6 +887,7 @@
 		pinctrl-1 = <&spkr_i2s_clk_active>;
 	};
 
+#ifdef CONFIG_LGE_BROADCAST_ISDBT_JAPAN
 	tspp: msm_tspp@075e7000 {
 		compatible = "qcom,msm_tspp";
 		reg = <0x075e7000 0x1000>, /* MSM_TSIF0_PHYS */
@@ -928,6 +937,7 @@
 			&tsif1_signals_active
 			&tsif1_sync_active>;		/* dual-tsif-mode2 */
 	};
+#endif
 
 	wcd_rst_gpio: wcd_gpio_ctrl {
 		compatible = "qcom,wcd-gpio-ctrl";
@@ -1365,6 +1375,8 @@
 		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
+		qcom,common-clk-en;
+		qcom,clk-power-manage-en;
 
 		qcom,ep-latency = <10>;
 

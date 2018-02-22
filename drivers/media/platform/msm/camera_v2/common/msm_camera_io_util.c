@@ -729,7 +729,7 @@ vreg_get_fail:
 }
 
 int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
-	int gpio_en)
+	int gpio_en, int dual_camera) //LG Change
 {
 	int rc = 0, i = 0, err = 0;
 
@@ -744,6 +744,9 @@ int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
 	}
 	if (gpio_en) {
 		for (i = 0; i < size; i++) {
+			if(gpio_tbl[i].gpio == 91 && dual_camera) //LGE Change(for TCS)
+				continue;
+
 			err = gpio_request_one(gpio_tbl[i].gpio,
 				gpio_tbl[i].flags, gpio_tbl[i].label);
 			if (err) {
