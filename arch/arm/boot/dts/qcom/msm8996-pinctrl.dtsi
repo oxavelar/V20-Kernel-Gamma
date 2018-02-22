@@ -2886,6 +2886,7 @@
 			};
 		};
 
+#ifdef CONFIG_LGE_BROADCAST_ISDBT_JAPAN
 		tsif0_signals_active: tsif0_signals_active {
 			tsif1_clk {
 				pins = "gpio89"; /* TSIF0 CLK */
@@ -2915,6 +2916,7 @@
 				bias-pull-down;		/* pull down */
 			};
 		};
+#endif
 
 		tsif1_signals_active: tsif1_signals_active {
 			tsif2_clk {

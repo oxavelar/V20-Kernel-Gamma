@@ -293,8 +293,13 @@ void rect_copy_mdp_to_mdss(struct mdp_rect *mdp, struct mdss_rect *mdss)
  */
 int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2)
 {
+#ifdef CONFIG_LGE_DISABLE_SECOND_SCREEN
+	/* Skip the vertical checking due to the 160px offset */
+	return rect1->x == rect2->x && rect1->w == rect2->w;
+#else
 	return rect1->x == rect2->x && rect1->y == rect2->y &&
 	       rect1->w == rect2->w && rect1->h == rect2->h;
+#endif
 }
 
 /*
@@ -419,8 +424,13 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 
 	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
 		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+		uint32_t y_stride_alignment = 0, uv_stride_alignment = 0;
+		uint32_t y_height_alignment = 0, uv_height_alignment = 0;
+#else
 		uint32_t y_stride_alignment, uv_stride_alignment;
 		uint32_t y_height_alignment, uv_height_alignment;
+#endif
 		uint32_t y_tile_width = fmt_ubwc->micro.tile_width;
 		uint32_t y_tile_height = fmt_ubwc->micro.tile_height;
 		uint32_t uv_tile_width = y_tile_width / 2;
@@ -1100,6 +1110,9 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		pr_debug("mem=%d ihdl=%pK buf=0x%pa len=0x%lx\n",
 			 img->memory_id, data->srcp_dma_buf, &data->addr,
 			 data->len);
+#ifdef QCT_MM_NOC_PATCH
+		MDSS_XLOG(img->memory_id, data->srcp_dma_buf, &data->addr, data->len);
+#endif
 	} else {
 		mdss_mdp_put_img(data, rotator, dir);
 		return ret ? : -EOVERFLOW;

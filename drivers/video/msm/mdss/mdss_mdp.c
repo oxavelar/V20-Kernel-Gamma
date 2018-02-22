@@ -1763,8 +1763,13 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	mdata->hflip_buffer_reused = true;
 	/* prevent disable of prefill calculations */
 	mdata->min_prefill_lines = 0xffff;
+#ifndef CONFIG_LGE_DISPLAY_COMMON
 	/* clock gating feature is disabled by default */
 	mdata->enable_gate = false;
+#else
+	/* clock gating feature is enabled by default */
+	mdata->enable_gate = true;
+#endif
 	mdata->pixel_ram_size = 0;
 	mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_FLAT;
 
@@ -1778,6 +1783,10 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 			ARRAY_SIZE(invalid_mdp107_wb_output_fmts),
 			VALID_MDP_WB_INTF_FORMAT);
 	case MDSS_MDP_HW_REV_107_2:
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+		/* disable ECG for 28nm PHY platform */
+		mdata->enable_gate = false;
+#endif
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 128;
 		mdata->per_pipe_ib_factor.numer = 8;

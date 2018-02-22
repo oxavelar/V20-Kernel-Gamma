@@ -351,34 +351,6 @@ int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	return msm_isp_process_event_subscription(fh, sub, false);
 }
 
-static int msm_isp_update_fe_frame_id(struct vfe_device *vfe_dev,
-	void *arg)
-{
-	struct msm_vfe_update_fe_frame_id *session_frameid = arg;
-	int rc = 0;
-	/*
-	* For Offline VFE, HAL expects same frame id
-	* for offline output which it requested in do_reprocess.
-	*/
-	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
-		   session_frameid->frame_id;
-	return rc;
-}
-
-static int msm_isp_restart_fe(struct vfe_device *vfe_dev,
-	void *arg)
-{
-	struct msm_vfe_restart_fe_cmd *rst_fe = arg;
-	int rc = 0;
-	/*
-	* In case of overflow recovery
-	* restart fetch engine
-	*/
-	if (rst_fe->restart_fe)
-		vfe_dev->fetch_engine_info.is_busy = 1;
-	return rc;
-}
-
 static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg)
 {
@@ -889,12 +861,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
-	case VIDIOC_MSM_ISP_CFG_HW_STATE:
-		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_update_stream_bandwidth(vfe_dev,
-			*(enum msm_vfe_hw_state *)arg);
-		mutex_unlock(&vfe_dev->core_mutex);
-		break;
 	case VIDIOC_MSM_ISP_AXI_HALT:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_axi_halt(vfe_dev, arg);
@@ -962,19 +928,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_start_fetch_engine_multi_pass(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
-
-	case VIDIOC_MSM_ISP_RESTART_FE:
-		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_restart_fe(vfe_dev, arg);
-		mutex_unlock(&vfe_dev->core_mutex);
-		break;
-
-	case VIDIOC_MSM_ISP_UPDATE_FE_FRAME_ID:
-		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_update_fe_frame_id(vfe_dev, arg);
-		mutex_unlock(&vfe_dev->core_mutex);
-		break;
-
 	case VIDIOC_MSM_ISP_REG_UPDATE_CMD:
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
@@ -1427,20 +1380,6 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		vfe_dev->vfe_ub_policy = *cfg_data;
 		break;
 	}
-	case GET_VFE_HW_LIMIT: {
-		uint32_t *hw_limit = NULL;
-
-		if (cmd_len < sizeof(uint32_t)) {
-			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
-				__func__, __LINE__, cmd_len,
-				sizeof(uint32_t));
-			return -EINVAL;
-		}
-
-		hw_limit = (uint32_t *)cfg_data;
-		*hw_limit = vfe_dev->vfe_hw_limit;
-		break;
-	}
 	}
 	return 0;
 }
@@ -1605,10 +1544,6 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
-	case V4L2_PIX_FMT_P16BGGR12:
-	case V4L2_PIX_FMT_P16GBRG12:
-	case V4L2_PIX_FMT_P16GRBG12:
-	case V4L2_PIX_FMT_P16RGGB12:
 		val = CAL_WORD(pixel_per_line, 1, 4);
 	break;
 	case V4L2_PIX_FMT_NV24:
@@ -1675,10 +1610,6 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
-	case V4L2_PIX_FMT_P16BGGR12:
-	case V4L2_PIX_FMT_P16GBRG12:
-	case V4L2_PIX_FMT_P16GRBG12:
-	case V4L2_PIX_FMT_P16RGGB12:
 		return PLAIN16;
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
@@ -1763,10 +1694,6 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
 	case V4L2_PIX_FMT_Y12:
-	case V4L2_PIX_FMT_P16BGGR12:
-	case V4L2_PIX_FMT_P16GBRG12:
-	case V4L2_PIX_FMT_P16GRBG12:
-	case V4L2_PIX_FMT_P16RGGB12:
 		return 12;
 	case V4L2_PIX_FMT_SBGGR14:
 	case V4L2_PIX_FMT_SGBRG14:
@@ -2449,6 +2376,66 @@ void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
 		stream_info->activated_framedrop_period  =
 			stream_info->requested_framedrop_period;
 		spin_unlock_irqrestore(&stream_info->lock, flags);
+	}
+}
+
+void msm_isp_start_error_recovery(struct vfe_device *vfe_dev)
+{
+	struct msm_isp_event_data error_event;
+
+	/*Mask out all other irqs if recovery is started*/
+	if (atomic_read(&vfe_dev->error_info.overflow_state) != NO_OVERFLOW) {
+		pr_err("%s: Error Recovery in processing !!!\n",
+				__func__);
+		return;
+	}
+
+	if (vfe_dev->reset_pending == 1) {
+		pr_err("%s:%d failed: recovery during reset\n",
+			__func__, __LINE__);
+		return;
+	}
+
+	/* maks off irq for current vfe */
+	atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+		NO_OVERFLOW, OVERFLOW_DETECTED);
+	vfe_dev->recovery_irq0_mask = vfe_dev->irq0_mask;
+	vfe_dev->recovery_irq1_mask = vfe_dev->irq1_mask;
+
+	vfe_dev->hw_info->vfe_ops.core_ops.
+			set_halt_restart_mask(vfe_dev);
+
+	/* mask off other vfe if dual vfe is used */
+	if (vfe_dev->is_split) {
+		uint32_t other_vfe_id;
+		struct vfe_device *other_vfe_dev;
+
+		other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0) ?
+			ISP_VFE1 : ISP_VFE0;
+		atomic_cmpxchg(&(vfe_dev->common_data->dual_vfe_res->
+			vfe_dev[other_vfe_id]->
+			error_info.overflow_state),
+			NO_OVERFLOW, OVERFLOW_DETECTED);
+
+		other_vfe_dev = vfe_dev->common_data->
+			dual_vfe_res->vfe_dev[other_vfe_id];
+		other_vfe_dev->recovery_irq0_mask = other_vfe_dev->irq0_mask;
+		other_vfe_dev->recovery_irq1_mask = other_vfe_dev->irq1_mask;
+
+		vfe_dev->hw_info->vfe_ops.core_ops.
+			set_halt_restart_mask(vfe_dev->common_data->
+			dual_vfe_res->vfe_dev[other_vfe_id]);
+	}
+
+	if (atomic_read(&vfe_dev->error_info.overflow_state)
+		!= HALT_ENFORCED) {
+		memset(&error_event, 0, sizeof(error_event));
+		error_event.frame_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+		error_event.u.error_info.err_type =
+			ISP_ERROR_BUS_OVERFLOW;
+		msm_isp_send_event(vfe_dev,
+			ISP_EVENT_ERROR, &error_event);
 	}
 }
 

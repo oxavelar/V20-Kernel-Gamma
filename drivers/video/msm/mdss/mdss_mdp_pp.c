@@ -23,6 +23,9 @@
 #include <linux/msm-bus-board.h>
 #include "mdss_mdp_pp_cache_config.h"
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+#include "lge/lge_mdss_display.h"
+#endif
 struct mdp_csc_cfg mdp_csc_8bit_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_YUV2RGB_601L] = {
 		0,
@@ -4383,7 +4386,11 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 	struct mdp_pp_feature_version dither_version = {
 		.pp_feature = DITHER,
 	};
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+	struct mdp_dither_data_v1_7 dither_data = {0,};
+#else
 	struct mdp_dither_data_v1_7 dither_data;
+#endif
 
 	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
 		pr_debug("dither config not supported on display num %d\n",
@@ -5206,7 +5213,11 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 	u32 exp_sum = 0;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+	unsigned long flag = 0;
+#else
 	unsigned long flag;
+#endif
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
 		pr_err("Unsupported mdp rev %d\n", mdata->mdp_rev);
@@ -5747,6 +5758,9 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 	if (!ret && (init_cfg->ops & MDP_PP_OPS_DISABLE)) {
 		ad->sts &= ~PP_STS_ENABLE;
 		mutex_unlock(&ad->lock);
+#if defined(CONFIG_LGE_PP_AD_SUPPORTED)
+		lge_mdss_fb_ad_set_brightness(mfd, 0, 0);
+#endif
 		cancel_work_sync(&ad->calc_work);
 		mutex_lock(&ad->lock);
 		ad->mfd = NULL;
@@ -5807,6 +5821,11 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 		ad->calc_itr = ad->cfg.stab_itr;
 		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 		ad->sts |= PP_AD_STS_DIRTY_DATA;
+#if defined(CONFIG_LGE_PP_AD_SUPPORTED)
+		mutex_unlock(&ad->lock);
+		lge_mdss_fb_ad_set_brightness(mfd, input->in.amb_light, 1);
+		mutex_lock(&ad->lock);
+#endif
 		mdp5_data = mfd_to_mdp5_data(mfd);
 		if (mdp5_data)
 			mdp5_data->ad_events = 0;
@@ -5844,6 +5863,9 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			MDSS_BRIGHT_TO_BL(bl, bl, mfd->panel_info->bl_max,
 					mfd->panel_info->brightness_max);
 			mdss_fb_set_backlight(mfd, bl);
+#ifdef CONFIG_LGE_DISPLAY_BL_EXTENDED
+			mdss_fb_set_backlight_ex(mfd, bl);
+#endif
 			mutex_unlock(&mfd->bl_lock);
 			mutex_lock(&ad->lock);
 			mfd->calib_mode_bl = bl;
