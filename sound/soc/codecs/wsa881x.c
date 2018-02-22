@@ -1048,6 +1048,9 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa881x->codec = codec;
 	mutex_init(&wsa881x->bg_lock);
 	mutex_init(&wsa881x->res_lock);
+#ifdef CONFIG_MACH_LGE
+	swr_wakeup_soundwire_master(dev);
+#endif
 	wsa881x_init(codec);
 	snprintf(wsa881x->tz_pdata.name, sizeof(wsa881x->tz_pdata.name),
 		"%s.%x", "wsatz", (u8)dev->addr);
@@ -1286,7 +1289,15 @@ static int wsa881x_swr_down(struct swr_device *pdev)
 		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
 		return -EINVAL;
 	}
+#ifdef CONFIG_MACH_LGE
+	if (wsa881x->state == WSA881X_DEV_UP) {
+		cancel_delayed_work_sync(&wsa881x->ocp_ctl_work);
+	} else {
+		dev_err(&pdev->dev, "%s: do not cancel in WSA881X_DEV_DOWN status\n", __func__);
+	}
+#else
 	cancel_delayed_work_sync(&wsa881x->ocp_ctl_work);
+#endif
 	ret = wsa881x_gpio_ctrl(wsa881x, false);
 	if (ret)
 		dev_err(&pdev->dev, "%s: Failed to disable gpio\n", __func__);
