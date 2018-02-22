@@ -69,6 +69,9 @@ EXPORT_SYMBOL(boot_reason);
 unsigned int cold_boot;
 EXPORT_SYMBOL(cold_boot);
 
+unsigned int system_rev;
+EXPORT_SYMBOL(system_rev);
+
 char* (*arch_read_hardware_id)(void);
 const char *machine_name;
 

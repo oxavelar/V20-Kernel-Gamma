@@ -838,6 +838,39 @@ fail:
 	return status;
 }
 
+#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
+static int lge_acm_desc_change(struct usb_function *f, bool is_mac)
+{
+	struct usb_composite_dev *cdev = f->config->cdev;
+	struct usb_interface_descriptor *ss;
+	struct usb_interface_descriptor *hs;
+	struct usb_interface_descriptor *fs;
+	__u8 replaceClass;
+
+	if (is_mac == true)
+		replaceClass = USB_CLASS_VENDOR_SPEC;
+	else
+		replaceClass = USB_CLASS_COMM;
+
+	if (gadget_is_superspeed(cdev->gadget) && f->ss_descriptors) {
+		ss = (struct usb_interface_descriptor *)f->ss_descriptors[1];
+		ss->bInterfaceClass = replaceClass;
+	}
+	if (gadget_is_dualspeed(cdev->gadget) && f->hs_descriptors) {
+		hs = (struct usb_interface_descriptor *)f->hs_descriptors[1];
+		hs->bInterfaceClass = replaceClass;
+	}
+	fs = (struct usb_interface_descriptor *)f->fs_descriptors[1];
+	fs->bInterfaceClass = replaceClass;
+
+	pr_info("%s ACM bInterfaceClass change to fs:%u\n",
+		is_mac ? "MAC OS" : "WIN/LINUX",
+		((struct usb_interface_descriptor *)f->fs_descriptors[1])->bInterfaceClass);
+
+	return 0;
+}
+#endif
+
 static void acm_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_acm		*acm = func_to_acm(f);
@@ -886,6 +919,9 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port.func.setup = acm_setup;
 	acm->port.func.disable = acm_disable;
 
+#ifdef CONFIG_LGE_USB_G_MULTIPLE_CONFIGURATION
+	acm->port.func.desc_change = lge_acm_desc_change;
+#endif
 	acm->port_num = opts->port_num;
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;

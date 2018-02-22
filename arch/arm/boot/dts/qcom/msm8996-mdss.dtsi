@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -534,7 +534,7 @@
 		clock-names = "mdp_core_clk", "iface_clk",
 				"core_clk", "alt_iface_clk", "extp_clk";
 
-		qcom,hdmi-tx-hpd = <&pm8994_mpps 4 0>;
+		/delete-property/ qcom,hdmi-tx-hpd;
 		qcom,mdss-fb-map = <&mdss_fb2>;
 		qcom,pluggable;
 
