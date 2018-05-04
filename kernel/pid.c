@@ -536,6 +536,12 @@ pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
 }
 EXPORT_SYMBOL(__task_pid_nr_ns);
 
+pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
+{
+	return pid_nr_ns(task_tgid(tsk), ns);
+}
+EXPORT_SYMBOL(task_tgid_nr_ns);
+
 struct pid_namespace *task_active_pid_ns(struct task_struct *tsk)
 {
 	return ns_of_pid(task_pid(tsk));
