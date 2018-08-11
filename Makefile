@@ -221,12 +221,13 @@ export srctree objtree VPATH
 # then ARCH is assigned, getting whatever value it gets normally, and
 # SUBARCH is subsequently ignored.
 
-SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
-				  -e s/sun4u/sparc64/ \
-				  -e s/arm.*/arm/ -e s/sa110/arm/ \
-				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
-				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
-				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
+# SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
+#				  -e s/sun4u/sparc64/ \
+#				  -e s/arm.*/arm/ -e s/sa110/arm/ \
+#				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
+#				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
+#				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
+SUBARCH := arm64
 
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
@@ -249,7 +250,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+#CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+CROSS_COMPILE := aarch64-linux-gnu-
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -798,6 +800,60 @@ endif
 include $(srctree)/scripts/Makefile.kasan
 include $(srctree)/scripts/Makefile.extrawarn
 include $(srctree)/scripts/Makefile.ubsan
+
+QCOM_S820 := \
+        -march=armv8.1-a+simd+crc+crypto \
+        -mtune=cortex-a72 \
+        --param l1-cache-line-size=64 \
+        --param l1-cache-size=32 \
+        --param l2-cache-size=512 \
+
+GRAPHTIE_FLAGS := \
+        -fgraphite-identity \
+        -ftree-loop-linear \
+        -floop-interchange \
+        -floop-strip-mine \
+        -floop-block \
+
+KCFLAGS := \
+        -pipe \
+        -O2 \
+        -flto \
+        -finline-functions \
+        -fomit-frame-pointer \
+        -ftree-vectorize \
+        -ftree-slp-vectorize \
+        -fvect-cost-model \
+        -ftree-partial-pre \
+        -fweb \
+        -fgcse \
+        -fgcse-sm \
+        -fgcse-las \
+        -fgcse-after-reload \
+        -fivopts \
+        -fsection-anchors \
+        -fsched-spec-load \
+        -ftree-loop-distribution \
+        -ftree-loop-distribute-patterns \
+        -ftree-loop-im \
+        -ftree-loop-if-convert \
+        -ftree-loop-if-convert-stores \
+        -fpredictive-commoning \
+        -foptimize-register-move \
+        -fipa-cp-clone \
+        -fipa-pta \
+        -fmodulo-sched \
+        -fmodulo-sched-allow-regmoves \
+        $(QCOM_S820) \
+        $(GRAPHITE_FLAGS) \
+
+KCFLAGS += -Wno-maybe-uninitialized
+LDFLAGS += -O2 --hash-style=gnu --as-needed -flto
+
+KCFLAGS += -Wno-misleading-indentation
+KCFLAGS += -Wno-tautological-compare
+KCFLAGS += -Wno-array-bounds
+KCFLAGS += -fno-use-linker-plugin
 
 # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
 KBUILD_CPPFLAGS += $(KCPPFLAGS)
