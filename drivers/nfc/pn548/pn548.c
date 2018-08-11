@@ -40,7 +40,7 @@
 #include <linux/wakelock.h>
 #include <linux/kthread.h>
 
-#include <pn548.h>
+#include "../drivers/nfc/pn548/pn548.h"
 
 #define MAX_BUFFER_SIZE 512
 #define _A1_PN66T_
