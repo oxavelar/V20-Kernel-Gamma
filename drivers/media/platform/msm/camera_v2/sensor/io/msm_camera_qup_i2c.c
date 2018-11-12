@@ -224,7 +224,7 @@ int32_t msm_camera_qup_i2c_write_seq(struct msm_camera_i2c_client *client,
 	int32_t rc = -EFAULT;
 	unsigned char buf[client->addr_type+num_byte];
 
-#ifndef CONFIG_MACH_LGE
+#if 0 //ndef CONFIG_MACH_LGE
 	uint8_t len = 0, i = 0;
 #else
 	uint8_t len = 0;
@@ -257,7 +257,7 @@ int32_t msm_camera_qup_i2c_write_seq(struct msm_camera_i2c_client *client,
 		num_byte = I2C_SEQ_REG_DATA_MAX;
 	}
 
-#ifndef CONFIG_MACH_LGE
+#if 0 //ndef CONFIG_MACH_LGE
 	for (i = 0; i < num_byte; i++) {
 		buf[i+len] = data[i];
 		S_I2C_DBG("Byte %d: 0x%x\n", i+len, buf[i+len]);

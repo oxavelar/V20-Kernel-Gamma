@@ -1,5 +1,5 @@
 /*******************************************************************************
- Copyright © 2015, STMicroelectronics International N.V.
+ Copyright © 2016, STMicroelectronics International N.V.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -114,10 +114,6 @@
 			(uint16_t)((((uint16_t)msb) << 8) + (uint16_t)lsb)
 
 /* Internal functions declaration */
-#if 0
-VL53L010_EXTERNAL VL53L0_Error VL53L010_set_vcsel_pulse_period(VL53L0_DEV Dev,
-				uint8_t VCSELPulsePeriod);
-#endif
 VL53L010_EXTERNAL VL53L0_Error VL53L010_get_vcsel_pulse_period(VL53L0_DEV Dev,
 				uint8_t *pVCSELPulsePeriod, uint8_t RangeIndex);
 VL53L010_EXTERNAL uint8_t VL53L010_encode_vcsel_period(uint8_t vcsel_period_pclks);
@@ -1076,8 +1072,8 @@ VL53L0_Error VL53L010_GetMeasurementTimingBudgetMicroSeconds(VL53L0_DEV Dev,
 	uint8_t CurrentVCSELPulsePeriod;
 	uint8_t CurrentVCSELPulsePeriodPClk;
 	uint16_t encodedTimeOut;
-	uint32_t RangATimingBudgetMicroSeconds;
-	uint32_t RangBTimingBudgetMicroSeconds;
+	uint32_t RangATimingBudgetMicroSeconds = 0;
+	uint32_t RangBTimingBudgetMicroSeconds = 0;
 	uint8_t Byte;
 
 	LOG_FUNCTION_START("");
@@ -1443,7 +1439,7 @@ VL53L0_Error VL53L010_GetLimitCheckValue(VL53L0_DEV Dev,
 
     LOG_FUNCTION_END(Status);
     return Status;
-
+    
 }
 
 VL53L0_Error VL53L010_GetLimitCheckCurrent(VL53L0_DEV Dev,

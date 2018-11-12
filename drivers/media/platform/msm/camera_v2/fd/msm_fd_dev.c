@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
 #include <media/videobuf2-core.h>
+#include <linux/async.h>// LGE async fd_driver init
 
 #include "msm_fd_dev.h"
 #include "msm_fd_hw.h"
@@ -340,7 +341,7 @@ static int msm_fd_vbif_error_handler(void *handle, uint32_t error)
 	int ret;
 
 	if (NULL == handle) {
-		dev_err(fd->dev, "FD Ctx is null, Cannot recover\n");
+		pr_err("FD Ctx is null, Cannot recover \n");
 		return 0;
 	}
 	ctx = (struct fd_ctx *)handle;
@@ -440,7 +441,7 @@ static int msm_fd_open(struct file *file)
 	}
 
 	ctx->mem_pool.fd_device = ctx->fd_device;
-	ctx->stats = vzalloc(sizeof(*ctx->stats) * MSM_FD_MAX_RESULT_BUFS);
+	ctx->stats = vmalloc(sizeof(*ctx->stats) * MSM_FD_MAX_RESULT_BUFS);
 	if (!ctx->stats) {
 		dev_err(device->dev, "No memory for face statistics\n");
 		ret = -ENOMEM;
@@ -1453,9 +1454,19 @@ static struct platform_driver fd_driver = {
 	},
 };
 
+// LGE async fd_driver init
+static void async_msm_fd_init_module(void *data, async_cookie_t cookie)
+{
+	int ret = 0;
+	ret = platform_driver_register(&fd_driver);
+	if (ret < 0)
+		pr_err("failed to register fd_driver. \n");
+}
+
 static int __init msm_fd_init_module(void)
 {
-	return platform_driver_register(&fd_driver);
+	//return platform_driver_register(&fd_driver);
+	return async_schedule(async_msm_fd_init_module, NULL);
 }
 
 static void __exit msm_fd_exit_module(void)

@@ -633,8 +633,6 @@ int vfe_hw_probe(struct platform_device *pdev)
 	spin_lock_init(&vfe_dev->shared_data_lock);
 	spin_lock_init(&vfe_dev->reg_update_lock);
 	spin_lock_init(&req_history_lock);
-	spin_lock_init(&vfe_dev->reset_completion_lock);
-	spin_lock_init(&vfe_dev->halt_completion_lock);
 	media_entity_init(&vfe_dev->subdev.sd.entity, 0, NULL, 0);
 	vfe_dev->subdev.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	vfe_dev->subdev.sd.entity.group_id = MSM_CAMERA_SUBDEV_VFE;
@@ -669,14 +667,6 @@ int vfe_hw_probe(struct platform_device *pdev)
 		vfe_dev->hw_info->num_iommu_secure_ctx;
 	vfe_dev->buf_mgr->init_done = 1;
 	vfe_dev->vfe_open_cnt = 0;
-	/*Allocate a page in kernel and map it to camera user process*/
-	vfe_dev->isp_page = (struct isp_proc *)get_zeroed_page(GFP_KERNEL);
-	if (vfe_dev->isp_page == NULL) {
-		pr_err("%s: no enough memory\n", __func__);
-		rc = -ENOMEM;
-		goto probe_fail3;
-	}
-	vfe_dev->isp_page->vfeid = vfe_dev->pdev->id;
 	return rc;
 
 probe_fail3:

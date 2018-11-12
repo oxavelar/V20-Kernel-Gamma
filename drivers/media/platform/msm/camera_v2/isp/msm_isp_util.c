@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,7 +198,7 @@ void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp,
 		time_stamp->buf_time.tv_sec    = time_stamp->vt_time.tv_sec;
 		time_stamp->buf_time.tv_usec   = time_stamp->vt_time.tv_usec;
 	} else	{
-		ktime_get_ts(&ts);
+		get_monotonic_boottime(&ts);
 		time_stamp->buf_time.tv_sec    = ts.tv_sec;
 		time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
 	}
@@ -351,6 +351,34 @@ int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	return msm_isp_process_event_subscription(fh, sub, false);
 }
 
+static int msm_isp_update_fe_frame_id(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_update_fe_frame_id *session_frameid = arg;
+	int rc = 0;
+	/*
+	* For Offline VFE, HAL expects same frame id
+	* for offline output which it requested in do_reprocess.
+	*/
+	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
+		   session_frameid->frame_id;
+	return rc;
+}
+
+static int msm_isp_restart_fe(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_restart_fe_cmd *rst_fe = arg;
+	int rc = 0;
+	/*
+	* In case of overflow recovery
+	* restart fetch engine
+	*/
+	if (rst_fe->restart_fe)
+		vfe_dev->fetch_engine_info.is_busy = 1;
+	return rc;
+}
+
 static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg)
 {
@@ -391,10 +419,8 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 			0, 1);
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 
-		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_offline_ping_pong_address(vfe_dev, stream_info,
 			VFE_PING_FLAG, fe_cfg->output_buf_idx);
-		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		if (rc < 0) {
 			pr_err("%s: Fetch engine config failed\n", __func__);
 			return -EINVAL;
@@ -861,6 +887,12 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+	case VIDIOC_MSM_ISP_CFG_HW_STATE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_update_stream_bandwidth(vfe_dev,
+			*(enum msm_vfe_hw_state *)arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
 	case VIDIOC_MSM_ISP_AXI_HALT:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_axi_halt(vfe_dev, arg);
@@ -882,7 +914,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESTART:
 		mutex_lock(&vfe_dev->core_mutex);
-		mutex_lock(&vfe_dev->buf_mgr->lock);
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_restart(vfe_dev);
@@ -893,7 +924,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 			pr_err_ratelimited("%s: no AXI restart, halt enforced.\n",
 				__func__);
 		}
-		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
@@ -928,6 +958,19 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_start_fetch_engine_multi_pass(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+
+	case VIDIOC_MSM_ISP_RESTART_FE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_restart_fe(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+
+	case VIDIOC_MSM_ISP_UPDATE_FE_FRAME_ID:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_update_fe_frame_id(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+
 	case VIDIOC_MSM_ISP_REG_UPDATE_CMD:
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
@@ -1378,6 +1421,20 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			return -EINVAL;
 		}
 		vfe_dev->vfe_ub_policy = *cfg_data;
+		break;
+	}
+	case GET_VFE_HW_LIMIT: {
+		uint32_t *hw_limit = NULL;
+
+		if (cmd_len < sizeof(uint32_t)) {
+			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
+				__func__, __LINE__, cmd_len,
+				sizeof(uint32_t));
+			return -EINVAL;
+		}
+
+		hw_limit = (uint32_t *)cfg_data;
+		*hw_limit = vfe_dev->vfe_hw_limit;
 		break;
 	}
 	}

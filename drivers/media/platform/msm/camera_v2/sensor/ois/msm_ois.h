@@ -28,27 +28,27 @@
 #define	MSM_OIS_MAX_VREGS (10)
 
 #ifdef CONFIG_LG_OIS
-/*#define MSM_OIS_DEBUG*/
-#undef CDBG
-#ifdef MSM_OIS_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
+	//#define MSM_OIS_DEBUG
+	#undef CDBG
+	#ifdef MSM_OIS_DEBUG
+	#define CDBG(fmt, args...) pr_err(fmt, ##args)
+	#else
+	#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+	#endif
 
-//OIS ERROR CODE
-#define OIS_SUCCESS                  0
-#define OIS_FAIL                    -1
-#define OIS_INIT_OLD_MODULE          1
-#define OIS_INIT_NOT_SUPPORTED      -2
-#define OIS_INIT_CHECKSUM_ERROR     -3
-#define OIS_INIT_EEPROM_ERROR       -4
-#define OIS_INIT_I2C_ERROR          -5
-#define OIS_INIT_TIMEOUT            -6
-#define OIS_INIT_LOAD_BIN_ERROR     -7
-#define OIS_INIT_NOMEM              -8
-#define OIS_INIT_GYRO_ADJ_FAIL       2
-#define OIS_INIT_SRV_GAIN_FAIL       4
+	//OIS ERROR CODE
+	#define OIS_SUCCESS 0
+	#define OIS_FAIL    -1
+	#define OIS_INIT_OLD_MODULE		1
+	#define OIS_INIT_NOT_SUPPORTED  -2
+	#define OIS_INIT_CHECKSUM_ERROR -3
+	#define OIS_INIT_EEPROM_ERROR   -4
+	#define OIS_INIT_I2C_ERROR      -5
+	#define OIS_INIT_TIMEOUT		-6
+	#define OIS_INIT_LOAD_BIN_ERROR -7
+	#define OIS_INIT_NOMEM			-8
+	#define OIS_INIT_GYRO_ADJ_FAIL	 2
+	#define OIS_INIT_SRV_GAIN_FAIL	 4
 #endif
 
 struct msm_ois_ctrl_t;

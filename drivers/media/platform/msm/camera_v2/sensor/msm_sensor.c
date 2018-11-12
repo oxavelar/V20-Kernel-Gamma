@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,16 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#if defined(CONFIG_LGE_CAM_PREVIEW_TUNE)
+/* LGE_CHANGE_S, LGE Preview tunning for lowlight, dongjin.ha */
+#define CAM_PREVIEW_TUNE_ON 1
+#define CAM_PREVIEW_TUNE_OFF 0
+extern int pp_set_cam_preview_tune_status(int flag);
+/* LGE_CHANGE_E, LGE Preview tunning for lowlight, dongjin.ha */
+#endif
+
+static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl;
+static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl;
 
 static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 {
@@ -86,6 +96,7 @@ int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl)
 	kfree(s_ctrl->sensordata->actuator_info);
 	kfree(s_ctrl->sensordata->power_info.gpio_conf->gpio_num_info);
 	kfree(s_ctrl->sensordata->power_info.gpio_conf->cam_gpio_req_tbl);
+	kfree(s_ctrl->sensordata->power_info.gpio_conf->cam_gpio_set_tbl);
 	kfree(s_ctrl->sensordata->power_info.gpio_conf);
 	kfree(s_ctrl->sensordata->power_info.cam_vreg);
 	kfree(s_ctrl->sensordata->power_info.power_setting);
@@ -135,14 +146,67 @@ int msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_MACH_LGE
+#if 1 //def CONFIG_MACH_LGE
 	pr_info("%s(%d) %s\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name);
 #endif
 
+	/* Power down secure session if it exist*/
+	if (s_ctrl->is_secure)
+		msm_camera_tz_i2c_power_down(sensor_i2c_client);
+
 	return msm_camera_power_down(power_info, sensor_device_type,
 		sensor_i2c_client);
 }
+
+/*LGE_CHANGE_S, LG_AF, 2017, By AF Member*/
+ int msm_sensor_get_temperature(struct msm_sensor_ctrl_t *s_ctrl, struct sensorb_cfg_data32 *cdata)
+{
+	int rc = 0;
+	uint16_t sensor_temperature = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %p\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %p %p %p\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		return -EINVAL;
+	}
+
+	rc = sensor_i2c_client->i2c_func_tbl->i2c_write(
+		sensor_i2c_client, 0x0138, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
+	if (rc < 0) {
+		pr_err("%s: %s: read id failed\n", __func__, sensor_name);
+		return rc;
+	}
+
+	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+		sensor_i2c_client, 0x013A, &sensor_temperature, MSM_CAMERA_I2C_BYTE_DATA);
+	if (rc < 0) {
+		pr_err("%s: %s: get sensor temp failed\n", __func__, sensor_name);
+		return rc;
+	}
+
+	if (copy_to_user((void *)compat_ptr((cdata->cfg.setting)), &sensor_temperature,
+		sizeof(uint16_t))) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
+/*LGE_CHANGE_E, LG_AF, 2017, By AF Member*/
 
 int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -178,7 +242,27 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	if (s_ctrl->set_mclk_23880000)
 		msm_sensor_adjust_mclk(power_info);
 
+	CDBG("Sensor %d tagged as %s\n", s_ctrl->id,
+		(s_ctrl->is_secure)?"SECURE":"NON-SECURE");
+
 	for (retry = 0; retry < 3; retry++) {
+		if (s_ctrl->is_secure) {
+			rc = msm_camera_tz_i2c_power_up(sensor_i2c_client);
+			if (rc < 0) {
+#ifdef CONFIG_MSM_SEC_CCI_DEBUG
+				CDBG("Secure Sensor %d use cci\n", s_ctrl->id);
+				/* session is not secure */
+				s_ctrl->sensor_i2c_client->i2c_func_tbl =
+					&msm_sensor_cci_func_tbl;
+#else  /* CONFIG_MSM_SEC_CCI_DEBUG */
+				return rc;
+#endif /* CONFIG_MSM_SEC_CCI_DEBUG */
+			} else {
+				/* session is secure */
+				s_ctrl->sensor_i2c_client->i2c_func_tbl =
+					&msm_sensor_secure_func_tbl;
+			}
+		}
 		rc = msm_camera_power_up(power_info, s_ctrl->sensor_device_type,
 			sensor_i2c_client);
 		if (rc < 0)
@@ -193,6 +277,10 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			break;
 		}
 	}
+
+#if 1 //def CONFIG_MACH_LGE
+	pr_info("%s(%d) %s\n", __func__, __LINE__, sensor_name);
+#endif
 
 	return rc;
 }
@@ -248,7 +336,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
+	pr_err("%s: read id: 0x%x expected id 0x%x:\n",
 			__func__, chipid, slave_info->sensor_id);
 	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
 		pr_err("%s chip id %x does not match %x\n",
@@ -782,6 +870,14 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 
 		kfree(s_ctrl->stop_setting.reg_setting);
 		s_ctrl->stop_setting.reg_setting = NULL;
+
+#if defined(CONFIG_LGE_CAM_PREVIEW_TUNE)
+/* LGE_CHANGE_S, LGE Preview tunning for lowlight, dongjin.ha */
+		pr_err("CAM_PREVIEW_TUNE_OFF\n");
+		pp_set_cam_preview_tune_status(CAM_PREVIEW_TUNE_OFF);
+/* LGE_CHANGE_E, LGE Preview tunning for lowlight, dongjin.ha */
+#endif
+
 		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
 			pr_err("%s:%d failed: invalid state %d\n", __func__,
 				__LINE__, s_ctrl->sensor_state);
@@ -891,6 +987,28 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		break;
 	}
+	case CFG_SET_PREVIEW_TUNE_ON: {
+/* LGE_CHANGE_S, LGE Preview tunning for lowlight, dongjin.ha */
+#if defined(CONFIG_LGE_CAM_PREVIEW_TUNE)
+	pr_err("CAM_PREVIEW_TUNE_ON\n");
+	pp_set_cam_preview_tune_status(CAM_PREVIEW_TUNE_ON);
+#endif
+	}
+	break;
+	case CFG_SET_PREVIEW_TUNE_OFF: {
+#if defined(CONFIG_LGE_CAM_PREVIEW_TUNE)
+	pr_err("CAM_PREVIEW_TUNE_OFF\n");
+	pp_set_cam_preview_tune_status(CAM_PREVIEW_TUNE_OFF);
+#endif
+	}
+	break;
+/* LGE_CHANGE_E, LGE Preview tunning for lowlight, dongjin.ha */
+	/*LGE_CHANGE_S, LG_AF, 2017, By AF Member*/
+	case CFG_GET_SENSER_TEMPERATURE: {
+		msm_sensor_get_temperature(s_ctrl, cdata);
+	}
+	break;
+	/*LGE_CHANGE_E, LG_AF, 2017, By AF Member*/
 
 	default:
 		rc = -EFAULT;
@@ -1477,6 +1595,21 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_write_table_sync_block = msm_camera_qup_i2c_write_table,
 };
 
+static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl = {
+	.i2c_read = msm_camera_tz_i2c_read,
+	.i2c_read_seq = msm_camera_tz_i2c_read_seq,
+	.i2c_write = msm_camera_tz_i2c_write,
+	.i2c_write_table = msm_camera_tz_i2c_write_table,
+	.i2c_write_seq_table = msm_camera_tz_i2c_write_seq_table,
+	.i2c_write_table_w_microdelay =
+		msm_camera_tz_i2c_write_table_w_microdelay,
+	.i2c_util = msm_sensor_tz_i2c_util,
+	.i2c_write_conf_tbl = msm_camera_tz_i2c_write_conf_tbl,
+	.i2c_write_table_async = msm_camera_tz_i2c_write_table_async,
+	.i2c_write_table_sync = msm_camera_tz_i2c_write_table_sync,
+	.i2c_write_table_sync_block = msm_camera_tz_i2c_write_table_sync_block,
+};
+
 int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_cci_client *cci_client = NULL;
@@ -1509,6 +1642,9 @@ int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl)
 
 		/* Get CCI subdev */
 		cci_client->cci_subdev = msm_cci_get_subdev();
+
+		if (s_ctrl->is_secure)
+			msm_camera_tz_i2c_register_sensor((void *)s_ctrl);
 
 		/* Update CCI / I2C function table */
 		if (!s_ctrl->sensor_i2c_client->i2c_func_tbl)
