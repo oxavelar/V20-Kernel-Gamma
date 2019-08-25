@@ -14,7 +14,7 @@
 	dsi_sw49407_dsc_video: qcom,mdss_dsi_sw49407_dsc_qhd_video {
 		qcom,mdss-dsi-panel-name = "SW49407 video mode dsc dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
-		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-panel-framerate = <72>;
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 		qcom,mdss-dsi-min-refresh-rate = <54>;
